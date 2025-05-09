@@ -1,0 +1,4 @@
+node_modules/
+adminsecurekey.json
+.env
+npm-debug.log
