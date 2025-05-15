@@ -1,0 +1,4 @@
+node_modules/
+heart-rate-iot-abcbf-firebase-adminsdk-*.json
+.env
+npm-debug.log
