@@ -1,78 +1,67 @@
 
-
-const mqtt = require("mqtt");
-const admin = require("firebase-admin");
-const express = require("express");
-
-// ========== FIREBASE SETUP ==========
+const mqtt = require('mqtt');
+const admin = require('firebase-admin');
+const axios = require('axios');
 const serviceAccount = require("./heart-rate-iot-abcbf-firebase-adminsdk-fbsvc-2ced2c8b7c.json");
 
+// ====== Firebase Setup ======
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://heart-rate-iot-abcbf-default-rtdb.firebaseio.com" 
 });
 
 const db = admin.database();
-const bpmRef = db.ref("bpmRealtime");
-const historyRef = db.ref("bpmHistory");
 
-// ========== MQTT SETUP ==========
+// ====== MQTT Setup ======
 const mqttUser = "anggajananda398@gmail.com";
-const mqttPassword = "@Jananda11"; 
+const mqttPassword = "@Jananda11"; // ganti sesuai akun MaQiaTTo
 const mqttTopic = "anggajananda398@gmail.com/HeartRateIot";
 
-const options = {
-  host: "maqiatto.com",
-  port: 1883,
-  protocol: "mqtt",
+const client = mqtt.connect('mqtt://maqiatto.com', {
   username: mqttUser,
   password: mqttPassword
-};
+});
 
-const client = mqtt.connect(options);
-
-client.on("connect", () => {
+// ====== Blynk Setup ======
+const blynkToken = "6h5iFIjOCNrKwUB_nGyhVZESPbt-ehmw"; // 
+// ====== MQTT Listener ======
+client.on('connect', () => {
   console.log("MQTT Connected");
   client.subscribe(mqttTopic, (err) => {
     if (err) {
       console.error("Subscribe error:", err);
     } else {
-      console.log("Subscribed to topic:", mqttTopic);
+      console.log(`Subscribed to topic: ${mqttTopic}`);
     }
   });
 });
 
-client.on("message", (topic, message) => {
-  const bpm = parseInt(message.toString());
-  if (!isNaN(bpm) && bpm > 30 && bpm < 200) {
-    console.log("BPM diterima:", bpm);
+client.on('message', async (topic, message) => {
+  const bpm = message.toString();
+  const timestamp = Date.now();
 
-    // Simpan ke Firebase Realtime (untuk data live)
-    bpmRef.set({
-      value: bpm,
-      timestamp: Date.now()
+  console.log(`BPM Received: ${bpm}`);
+
+  try {
+    // ===== Simpan ke Firebase Realtime =====
+    await db.ref("HeartRateRealtime").set({
+      bpm: bpm,
+      timestamp: timestamp
     });
 
-    // Simpan ke Firebase History (data historis)
-    historyRef.push({
-      value: bpm,
-      timestamp: Date.now()
+    // ===== Simpan ke Firebase History =====
+    await db.ref("HeartRateHistory").push({
+      bpm: bpm,
+      timestamp: timestamp
     });
-  } else {
-    console.log("Data BPM tidak valid:", message.toString());
+
+    // ===== Kirim ke Blynk (Virtual Pin V0) =====
+    const blynkUrl = `https://blynk.cloud/external/api/update?token=${blynkToken}&v0=${bpm}`;
+    await axios.get(blynkUrl);
+
+    console.log("✅ Data terkirim ke Firebase & Blynk");
+  } catch (err) {
+    console.error("❌ Error saat proses:", err.message);
   }
 });
-
-// ========== WEB SERVER UNTUK UPTIMEROBOT ==========
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Listener aktif dan berjalan!");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Web server aktif di port ${PORT}`);
-});
-
 
