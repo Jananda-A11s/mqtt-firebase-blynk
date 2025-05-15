@@ -5,7 +5,7 @@ const admin = require("firebase-admin");
 const express = require("express");
 
 // ========== FIREBASE SETUP ==========
-const serviceAccount = require("./adminsecurekey.json");
+const serviceAccount = require("./heart-rate-iot-abcbf-firebase-adminsdk-fbsvc-2ced2c8b7c.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
